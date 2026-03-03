@@ -39,7 +39,9 @@ This system:
 This creates a simple monitoring-to-control loop.
 
 ---
+## Architecture Diagram
 
+![Architecture](architecture.png)
 ## System Architecture
 
 ESP32 collects thermal data from the AMG8833 sensor.
