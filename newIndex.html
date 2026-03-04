@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚡ Thermal Energy Command Center</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --accent-color: #00d2ff;
+            --hot-color: #ff416c;
+            --cold-color: #00d2ff;
+            --text: #ffffff;
+            --shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .dashboard {
+            width: 90%;
+            max-width: 900px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+        }
+
+        .card-header {
+            margin-bottom: 20px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--accent-color);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Thermal Grid Styling */
+        #thermal-container {
+            position: relative;
+            display: inline-block;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 3px solid #333;
+        }
+
+        canvas {
+            display: block;
+            width: 300px;
+            height: 300px;
+            /* This makes the 8x8 sensor look smooth/interpolated */
+            image-rendering: auto; 
+        }
+
+        /* Stats & Controls */
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin: 10px 0;
+        }
+
+        .stat-unit {
+            font-size: 1rem;
+            color: #888;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s, opacity 0.2s;
+        }
+
+        button:active { transform: scale(0.95); }
+
+        .btn-off { background: #ff4b2b; color: white; }
+        .btn-on { background: #00d2ff; color: white; }
+
+        .alert-active {
+            color: var(--hot-color);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        @media (max-width: 768px) {
+            .dashboard { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard">
+        
+        <div class="card">
+            <div class="card-header">Live Thermal Heatmap</div>
+            <div id="thermal-container">
+                <canvas id="heatmap" width="8" height="8"></canvas>
+            </div>
+            <div id="status-text" style="margin-top: 15px; color: #888;">Scanning...</div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">Energy Insights</div>
+            
+            <div class="stat-value" id="avg-temp">-- <span class="stat-unit">°C</span></div>
+            <div style="color: #888; font-size: 0.9rem;">Current Average Temperature</div>
+
+            <hr style="border: 0; border-top: 1px solid #333; margin: 20px 0;">
+
+            <div class="stat-value" style="color: #2ecc71;" id="savings-val">0.00 <span class="stat-unit">kWh</span></div>
+            <div style="color: #888; font-size: 0.9rem;">Estimated Savings (Today)</div>
+
+            <div class="controls">
+                <button class="btn-on" onclick="control('on')">POWER ON</button>
+                <button class="btn-off" onclick="control('off')">POWER OFF</button>
+            </div>
+
+            <p id="alert-box" style="margin-top: 20px; font-weight: bold;"></p>
+        </div>
+
+    </div>
+
+    <script>
+        const espIP = "http://192.168.1.XX"; // <-- REPLACE THIS WITH YOUR ESP32 IP
+        const canvas = document.getElementById('heatmap');
+        const ctx = canvas.getContext('2d');
+        let totalSaved = 0;
+        const DEVICE_WATTAGE = 9; // Representing a 9W LED or Bulb
+
+        async function updateDashboard() {
+            try {
+                const response = await fetch(`${espIP}/data`);
+                const data = await response.json();
+                
+                render(data.pixels);
+                
+                // Calculate Avg
+                const avg = data.pixels.reduce((a, b) => a + b) / 64;
+                document.getElementById('avg-temp').innerHTML = `${avg.toFixed(1)} <span class="stat-unit">°C</span>`;
+
+                // Anomaly Detection Logic
+                const alertBox = document.getElementById('alert-box');
+                if (avg > 30) {
+                    alertBox.innerText = "⚠️ ANOMALY: HIGH HEAT DETECTED";
+                    alertBox.className = "alert-active";
+                } else {
+                    alertBox.innerText = "System Normal";
+                    alertBox.className = "";
+                }
+
+                // Update Savings Simulation (assuming it's off when triggered)
+                if (!data.led) {
+                    // Small increment per second based on wattage
+                    totalSaved += (DEVICE_WATTAGE / 3600) / 1000; 
+                    document.getElementById('savings-val').innerHTML = `${totalSaved.toFixed(5)} <span class="stat-unit">kWh</span>`;
+                }
+
+                document.getElementById('status-text').innerText = "Live: System Connected";
+            } catch (err) {
+                document.getElementById('status-text').innerText = "Offline: Checking connection...";
+            }
+        }
+
+        function render(pixels) {
+            const imgData = ctx.createImageData(8, 8);
+            for (let i = 0; i < pixels.length; i++) {
+                let temp = pixels[i];
+                // Color mapping: 22C (Blue) to 35C (Red)
+                let ratio = Math.min(Math.max((temp - 22) / 13, 0), 1); 
+                
+                let idx = i * 4;
+                imgData.data[idx] = ratio * 255;         // R
+                imgData.data[idx+1] = (1 - ratio) * 50;  // G
+                imgData.data[idx+2] = (1 - ratio) * 255; // B
+                imgData.data[idx+3] = 255;               // A
+            }
+            ctx.putImageData(imgData, 0, 0);
+        }
+
+        function control(state) {
+            fetch(`${espIP}/control?state=${state}`);
+        }
+
+        // Poll every 1 second
+        setInterval(updateDashboard, 1000);
+    </script>
+</body>
+</html>
