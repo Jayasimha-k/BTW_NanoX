@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Thermal Energy Monitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+
+<!-- SCANLINE OVERLAY -->
+<div class="scanlines"></div>
+
+<!-- ═══ CRITICAL ALERT POPUP ════════════════════════════════ -->
+<div class="overlay" id="critical-overlay">
+  <div class="popup">
+    <div class="popup-icon">⚠</div>
+    <div class="popup-title">CRITICAL THERMAL ALERT</div>
+    <div class="popup-body">
+      Thermal sensor detected maximum temperature of
+      <span class="popup-temp" id="popup-max-temp">--</span>°C —
+      exceeding the critical threshold of <strong>40°C</strong>.
+    </div>
+    <div class="popup-meta">
+      The LED device has been pulsing in warning mode.<br/>
+      Auto-shutdown in <span class="popup-countdown" id="popup-countdown">30</span>s
+      unless acknowledged.
+    </div>
+    <div class="popup-detail">
+      Pressing <strong>OK</strong> will turn off the LED immediately
+      and log this event. The HVAC vent or monitored area is radiating
+      excessive thermal energy — inspect and reduce load.
+    </div>
+    <button class="popup-btn" onclick="acknowledgeCritical()">OK — TURN OFF LED</button>
+  </div>
+</div>
+
+<!-- ═══ SYSTEM STATUS BAR ════════════════════════════════════ -->
+<div class="system-status-bar normal" id="system-status-bar">
+  <span class="status-bar-label">SYSTEM STATUS</span>
+  <span class="status-bar-value" id="system-status-text">NORMAL</span>
+  <span class="status-bar-sep">|</span>
+  <span class="status-bar-label">DEVICE</span>
+  <span class="status-bar-value">ESP32 + AMG8833</span>
+  <span class="status-bar-sep">|</span>
+  <span class="status-bar-label">MONITORING</span>
+  <span class="status-bar-value">HVAC VENT</span>
+  <span class="status-bar-sep">|</span>
+  <span class="status-bar-label">PHYSICS</span>
+  <span class="status-bar-value">STEFAN-BOLTZMANN · EWI · CO₂</span>
+</div>
+
+<!-- ═══ LAYOUT ════════════════════════════════════════════════ -->
+<div class="app-layout">
+
+<!-- ─── SIDEBAR ─────────────────────────────────────────────── -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/>
+      </svg>
+    </div>
+    <div class="logo-text">
+      <span class="logo-title">THERMA</span>
+      <span class="logo-sub">ENERGY MONITOR</span>
+    </div>
+  </div>
+
+  <ul class="nav-links">
+    <li class="nav-item active" data-page="dashboard" onclick="navigate('dashboard', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+        <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+      </svg>
+      <span>Dashboard</span>
+    </li>
+    <li class="nav-item" data-page="heatmap" onclick="navigate('heatmap', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="2" y="2" width="20" height="20" rx="2"/>
+        <path d="M7 8h2v8H7zM11 5h2v11h-2zM15 10h2v6h-2z"/>
+      </svg>
+      <span>Heatmap</span>
+    </li>
+    <li class="nav-item" data-page="energy" onclick="navigate('energy', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+      </svg>
+      <span>Energy</span>
+    </li>
+    <li class="nav-item" data-page="history" onclick="navigate('history', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+      </svg>
+      <span>History</span>
+    </li>
+    <li class="nav-item" data-page="alerts" onclick="navigate('alerts', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+      </svg>
+      <span>Alerts</span>
+      <span class="nav-badge" id="alert-badge" style="display:none">0</span>
+    </li>
+    <li class="nav-item" data-page="controls" onclick="navigate('controls', this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.07 4.93l-1.41 1.41M6.34 17.66l-1.41 1.41M2 12h2M20 12h2M19.07 19.07l-1.41-1.41M6.34 6.34L4.93 4.93M12 2v2M12 20v2"/>
+      </svg>
+      <span>Controls</span>
+    </li>
+  </ul>
+
+  <div class="sidebar-status">
+    <div class="status-indicator" id="sidebar-status">
+      <span class="status-dot"></span>
+      <span class="status-label" id="sidebar-status-label">CONNECTING</span>
+    </div>
+    <div class="status-meta" id="sidebar-fps">-- FPS</div>
+  </div>
+</nav>
+
+<!-- ─── MAIN CONTENT ─────────────────────────────────────────── -->
+<main class="content" id="main-content">
+
+  <!-- ══════════════════════════════════════════════════════════
+       PAGE: DASHBOARD
+  ══════════════════════════════════════════════════════════ -->
+  <section class="page active" id="page-dashboard">
+    <div class="page-header">
+      <div>
+        <h2 class="page-title">Dashboard</h2>
+        <p class="page-sub">Live thermal overview — making the invisible visible</p>
+      </div>
+      <div class="header-meta">
+        <span class="mono dim" id="dash-timestamp">--:--:--</span>
+        <span class="chip" id="dash-frame">FRAME #0</span>
+        <span class="chip status-chip" id="d-status">NORMAL</span>
+      </div>
+    </div>
+
+    <div class="dash-grid">
+
+      <!-- Heatmap mini -->
+      <div class="card card-heatmap span-2">
+        <div class="card-header">
+          <span class="card-title">8×8 Thermal Array</span>
+          <span class="card-meta">AMG8833 · LIVE</span>
+        </div>
+        <div class="card-body center">
+          <div id="heatmap-mini" class="heatmap-grid"></div>
+          <div class="hm-legend">
+            <span class="hm-leg-item"><span class="leg-swatch" style="background:#3b82f6"></span>&lt;28°C</span>
+            <span class="hm-leg-item"><span class="leg-swatch" style="background:#22c55e"></span>28–30°</span>
+            <span class="hm-leg-item"><span class="leg-swatch" style="background:#eab308"></span>30–32°</span>
+            <span class="hm-leg-item"><span class="leg-swatch" style="background:#f97316"></span>32–35°</span>
+            <span class="hm-leg-item"><span class="leg-swatch" style="background:#ef4444"></span>&gt;35°C</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stat cards -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">Min Temp</span></div>
+        <div class="card-body center">
+          <div class="big-stat cold" id="d-min">--</div>
+          <div class="big-unit">°C</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">Avg Temp</span></div>
+        <div class="card-body center">
+          <div class="big-stat accent" id="d-avg">--</div>
+          <div class="big-unit">°C</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">Max Temp</span></div>
+        <div class="card-body center">
+          <div class="big-stat hot" id="d-max">--</div>
+          <div class="big-unit">°C</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">Hot Pixels</span></div>
+        <div class="card-body center">
+          <div class="big-stat fire" id="d-hotpx">0</div>
+          <div class="big-unit">above threshold</div>
+        </div>
+      </div>
+
+      <!-- Energy snapshot -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">Energy Waste Index</span></div>
+        <div class="card-body center">
+          <div class="big-stat accent" id="d-ewi">--</div>
+          <div class="big-unit">/ 100</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">Excess Power</span></div>
+        <div class="card-body center">
+          <div class="big-stat hot" id="d-excess">--</div>
+          <div class="big-unit">Watts wasted</div>
+        </div>
+      </div>
+
+      <!-- Mini trend graph -->
+      <div class="card span-4">
+        <div class="card-header">
+          <span class="card-title">Temperature Trend</span>
+          <span class="card-meta">60s rolling · min / avg / max</span>
+        </div>
+        <div class="card-body">
+          <canvas id="mini-graph" height="90"></canvas>
+          <div class="graph-legend">
+            <span class="gl-item"><span class="gl-line" style="background:#ef4444"></span>Max</span>
+            <span class="gl-item"><span class="gl-line" style="background:#00e5c4"></span>Avg</span>
+            <span class="gl-item"><span class="gl-line" style="background:#4a9eff"></span>Min</span>
+            <span class="gl-item"><span class="gl-line dashed"></span>Threshold</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════════════════
+       PAGE: HEATMAP
+  ══════════════════════════════════════════════════════════ -->
+  <section class="page" id="page-heatmap">
+    <div class="page-header">
+      <div>
+        <h2 class="page-title">Heatmap View</h2>
+        <p class="page-sub">Full-size 8×8 array — hover any pixel to inspect</p>
+      </div>
+      <span class="chip" id="hm-frame">FRAME #0</span>
+    </div>
+
+    <div class="heatmap-page-grid">
+      <div class="card heatmap-card">
+        <div class="card-header">
+          <span class="card-title">Live Thermal Array</span>
+          <span class="card-meta">AMG8833 · 8×8 pixels</span>
+        </div>
+        <div class="card-body center">
+          <div id="heatmap-full" class="heatmap-grid heatmap-large"></div>
+          <div class="hm-legend" style="margin-top:16px">
+            <span class="hm-leg-item"><span class="leg-swatch" style="background:#1e3a5f"></span>&lt;20°C</span>
+            <span class="hm-leg-item"><span class="leg-swatch" style="background:#3b82f6"></span>20–28°</span>
+            <span class="hm-leg-item"><span class="leg-swatch" style="background:#22c55e"></span>28–30°</span>
+            <span class="hm-leg-item"><span class="leg-swatch" style="background:#eab308"></span>30–32°</span>
+            <span class="hm-leg-item"><span class="leg-swatch" style="background:#f97316"></span>32–35°</span>
+            <span class="hm-leg-item"><span class="leg-swatch" style="background:#ef4444"></span>&gt;35°C</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hm-side">
+        <div class="card">
+          <div class="card-header"><span class="card-title">Pixel Inspector</span></div>
+          <div class="card-body">
+            <div class="inspector-placeholder" id="inspector-box">
+              <span class="mono dim">Hover over a cell</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><span class="card-title">Color Scale</span></div>
+          <div class="card-body">
+            <div class="color-scale-bar"></div>
+            <div class="color-scale-labels">
+              <span class="mono">20°</span>
+              <span class="mono">28°</span>
+              <span class="mono">32°</span>
+              <span class="mono">35°</span>
+              <span class="mono">50°C</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><span class="card-title">Row Averages</span></div>
+          <div class="card-body">
+            <div id="row-avgs"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════════════════
+       PAGE: ENERGY ANALYSIS
+  ══════════════════════════════════════════════════════════ -->
+  <section class="page" id="page-energy">
+    <div class="page-header">
+      <div>
+        <h2 class="page-title">Energy Analysis</h2>
+        <p class="page-sub">Real-time thermal energy waste · Stefan-Boltzmann radiation model</p>
+      </div>
+    </div>
+
+    <!-- Formula explanation banner -->
+    <div class="formula-banner">
+      <div class="formula-item">
+        <span class="formula-label">RADIATION MODEL</span>
+        <span class="formula-val">Q = ε · σ · A · T⁴</span>
+      </div>
+      <div class="formula-divider"></div>
+      <div class="formula-item">
+        <span class="formula-label">EXCESS POWER</span>
+        <span class="formula-val">ΔP = Q(T) − Q(T₀)</span>
+      </div>
+      <div class="formula-divider"></div>
+      <div class="formula-item">
+        <span class="formula-label">CO₂ FACTOR</span>
+        <span class="formula-val">0.82 kg / kWh</span>
+      </div>
+      <div class="formula-divider"></div>
+      <div class="formula-item">
+        <span class="formula-label">COST RATE</span>
+        <span class="formula-val">₹7.00 / kWh</span>
+      </div>
+    </div>
+
+    <div class="energy-grid">
+
+      <!-- Live energy metrics -->
+      <div class="card">
+        <div class="card-header"><span class="card-title">Total Radiated Power</span></div>
+        <div class="card-body center">
+          <div class="big-stat accent" id="e-radiated">--</div>
+          <div class="big-unit">Watts (all 64 pixels)</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">Excess Power Lost</span></div>
+        <div class="card-body center">
+          <div class="big-stat hot" id="e-excess">--</div>
+          <div class="big-unit">Watts above baseline</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Energy Waste Index</span>
+          <span class="card-meta tooltip-anchor" title="0 = no waste, 100 = all pixels at 60°C">ⓘ</span>
+        </div>
+        <div class="card-body center">
+          <div class="big-stat" id="e-ewi">--</div>
+          <div class="big-unit">/ 100 normalised</div>
+          <div class="ewi-bar-track">
+            <div class="ewi-bar-fill" id="ewi-bar-fill"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">Cumulative Energy Wasted</span></div>
+        <div class="card-body center">
+          <div class="big-stat fire" id="e-wasted-wh">--</div>
+          <div class="big-unit">Wh since session start</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">CO₂ Equivalent</span></div>
+        <div class="card-body center">
+          <div class="big-stat" style="color:#a855f7" id="e-co2">--</div>
+          <div class="big-unit">grams emitted</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">Estimated Cost</span></div>
+        <div class="card-body center">
+          <div class="big-stat accent" id="e-cost">--</div>
+          <div class="big-unit">₹ this session</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">Thermal Std Dev</span></div>
+        <div class="card-body center">
+          <div class="big-stat cold" id="e-stddev">--</div>
+          <div class="big-unit">°C — spatial uniformity</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">Anomaly Pixels</span></div>
+        <div class="card-body center">
+          <div class="big-stat fire" id="e-anomaly">--</div>
+          <div class="big-unit">pixels &gt; avg + 2σ</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">Session Uptime</span></div>
+        <div class="card-body center">
+          <div class="big-stat accent" id="e-uptime" style="font-size:1.6rem">--:--:--</div>
+          <div class="big-unit">hh:mm:ss</div>
+        </div>
+      </div>
+
+      <!-- Excess power graph -->
+      <div class="card span-3">
+        <div class="card-header">
+          <span class="card-title">Excess Power Over Time</span>
+          <span class="card-meta">Watts above 25°C baseline</span>
+        </div>
+        <div class="card-body">
+          <canvas id="energy-graph" height="200"></canvas>
+        </div>
+      </div>
+
+      <!-- EWI graph -->
+      <div class="card span-3">
+        <div class="card-header">
+          <span class="card-title">Energy Waste Index Over Time</span>
+          <span class="card-meta">0 = clean · 100 = critical waste</span>
+        </div>
+        <div class="card-body">
+          <canvas id="ewi-graph" height="160"></canvas>
+        </div>
+      </div>
+
+      <!-- How it works explanation -->
+      <div class="card span-6">
+        <div class="card-header"><span class="card-title">How The Analysis Works</span></div>
+        <div class="card-body">
+          <div class="explainer-grid">
+            <div class="explainer-item">
+              <div class="explainer-num">01</div>
+              <div class="explainer-title">Stefan-Boltzmann Law</div>
+              <div class="explainer-body">Each of the 64 pixels has its temperature read by the AMG8833 sensor. The radiated power per pixel is computed as Q = ε × σ × A × T⁴ where ε=0.95 (emissivity), σ=5.67×10⁻⁸ (Stefan-Boltzmann constant), A=1cm² (pixel area), and T is temperature in Kelvin.</div>
+            </div>
+            <div class="explainer-item">
+              <div class="explainer-num">02</div>
+              <div class="explainer-title">Excess Power Calculation</div>
+              <div class="explainer-body">Baseline power at 25°C ambient is subtracted from each pixel's measured radiated power. Any positive delta is "wasted" thermal energy — heat escaping the HVAC vent that should have stayed in the system or been converted to useful work.</div>
+            </div>
+            <div class="explainer-item">
+              <div class="explainer-num">03</div>
+              <div class="explainer-title">Energy Waste Index</div>
+              <div class="explainer-body">EWI is a 0–100 normalised score. 0 means all pixels are at baseline (25°C, no waste). 100 means all 64 pixels are at 60°C. It gives a single number that captures how inefficient the system is at any moment.</div>
+            </div>
+            <div class="explainer-item">
+              <div class="explainer-num">04</div>
+              <div class="explainer-title">Cumulative Waste & CO₂</div>
+              <div class="explainer-body">Excess power is integrated over time (ΔWh = P × Δt) to give cumulative wasted watt-hours. CO₂ is calculated using India's grid emission factor of 0.82 kg per kWh from CEA 2023. Cost uses the average Indian electricity tariff of ₹7/kWh.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════════════════
+       PAGE: HISTORY
+  ══════════════════════════════════════════════════════════ -->
+  <section class="page" id="page-history">
+    <div class="page-header">
+      <div>
+        <h2 class="page-title">Temperature History</h2>
+        <p class="page-sub">Rolling 60-reading chart — min / avg / max</p>
+      </div>
+      <button class="btn-outline" onclick="clearHistory()">Clear History</button>
+    </div>
+
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header">
+        <span class="card-title">Temperature Over Time</span>
+        <span class="card-meta">last 60 readings</span>
+      </div>
+      <div class="card-body">
+        <canvas id="main-graph" height="220"></canvas>
+        <div class="graph-legend">
+          <span class="gl-item"><span class="gl-line" style="background:#ef4444"></span>Max</span>
+          <span class="gl-item"><span class="gl-line" style="background:#00e5c4"></span>Avg</span>
+          <span class="gl-item"><span class="gl-line" style="background:#4a9eff"></span>Min</span>
+          <span class="gl-item"><span class="gl-line dashed"></span>Threshold</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="history-stats-row">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Session Min</span></div>
+        <div class="card-body center">
+          <div class="big-stat cold" id="h-smin">--</div>
+          <div class="big-unit">°C</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Session Avg</span></div>
+        <div class="card-body center">
+          <div class="big-stat accent" id="h-savg">--</div>
+          <div class="big-unit">°C</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Session Max</span></div>
+        <div class="card-body center">
+          <div class="big-stat hot" id="h-smax">--</div>
+          <div class="big-unit">°C</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Total Readings</span></div>
+        <div class="card-body center">
+          <div class="big-stat accent" id="h-count">0</div>
+          <div class="big-unit">frames</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════════════════
+       PAGE: ALERTS
+  ══════════════════════════════════════════════════════════ -->
+  <section class="page" id="page-alerts">
+    <div class="page-header">
+      <div>
+        <h2 class="page-title">Alerts</h2>
+        <p class="page-sub">Threshold configuration · active status · event log</p>
+      </div>
+      <button class="btn-outline" onclick="clearAlerts()">Clear Log</button>
+    </div>
+
+    <div class="alerts-grid">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Threshold Settings</span></div>
+        <div class="card-body">
+          <div class="threshold-row">
+            <label class="mono dim">ALERT ABOVE</label>
+            <input type="range" id="threshold-slider" min="20" max="70" value="35"
+                   oninput="updateThreshold(this.value)"/>
+            <span class="threshold-val mono" id="threshold-display">35°C</span>
+          </div>
+          <div class="alert-status-box" id="alert-status-box">
+            <span id="alert-status-icon">⬡</span>
+            <span id="alert-status-msg">No active alert. System nominal.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">Alert Statistics</span></div>
+        <div class="card-body">
+          <div class="alert-stat-row">
+            <span class="mono dim">Total Alerts</span>
+            <span class="mono accent" id="total-alerts">0</span>
+          </div>
+          <div class="alert-stat-row">
+            <span class="mono dim">Last Triggered</span>
+            <span class="mono" id="last-alert-time">Never</span>
+          </div>
+          <div class="alert-stat-row">
+            <span class="mono dim">Peak Recorded</span>
+            <span class="mono hot" id="peak-temp">--°C</span>
+          </div>
+          <div class="alert-stat-row">
+            <span class="mono dim">LED Warn Threshold</span>
+            <span class="mono accent">35°C → DIM</span>
+          </div>
+          <div class="alert-stat-row">
+            <span class="mono dim">LED Critical Threshold</span>
+            <span class="mono fire">40°C → PULSE</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card span-2">
+        <div class="card-header"><span class="card-title">Alert Event Log</span></div>
+        <div class="card-body">
+          <div id="alert-log-list">
+            <span class="mono dim" style="font-size:0.75rem">No alerts recorded yet.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════════════════════════
+       PAGE: CONTROLS
+  ══════════════════════════════════════════════════════════ -->
+  <section class="page" id="page-controls">
+    <div class="page-header">
+      <div>
+        <h2 class="page-title">Device Controls</h2>
+        <p class="page-sub">LED management · polling settings · raw data feed</p>
+      </div>
+    </div>
+
+    <div class="controls-grid">
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">LED Status</span></div>
+        <div class="card-body center" style="gap:14px">
+          <div class="led-visual" id="led-visual"></div>
+          <div class="led-state-stages">
+            <div class="led-stage">
+              <span class="led-stage-dot" style="background:#22c55e"></span>
+              <span class="mono dim">FULL — Normal (&lt;35°C)</span>
+            </div>
+            <div class="led-stage">
+              <span class="led-stage-dot" style="background:#eab308"></span>
+              <span class="mono dim">DIM 30% — Power Saving (35–40°C)</span>
+            </div>
+            <div class="led-stage">
+              <span class="led-stage-dot" style="background:#ef4444"></span>
+              <span class="mono dim">PULSE — Critical Warning (&gt;40°C)</span>
+            </div>
+            <div class="led-stage">
+              <span class="led-stage-dot" style="background:#333"></span>
+              <span class="mono dim">OFF — User acknowledged / auto-shutoff</span>
+            </div>
+          </div>
+          <div class="mono dim" id="led-state-label" style="font-size:0.7rem">STATE: UNKNOWN</div>
+          <div class="led-buttons">
+            <button class="btn-led-on"  id="btn-led-on"  onclick="ledOn()">FORCE ON</button>
+            <button class="btn-led-off" id="btn-led-off" onclick="ledOff()">FORCE OFF</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">Polling Settings</span></div>
+        <div class="card-body">
+          <div class="threshold-row" style="margin-bottom:20px">
+            <label class="mono dim">INTERVAL</label>
+            <input type="range" id="poll-slider" min="500" max="5000" step="500"
+                   value="1000" oninput="updatePollInterval(this.value)"/>
+            <span class="threshold-val mono" id="poll-display">1000ms</span>
+          </div>
+          <div class="alert-stat-row">
+            <span class="mono dim">ESP IP Address</span>
+            <span class="mono accent">192.168.4.1</span>
+          </div>
+          <div class="alert-stat-row">
+            <span class="mono dim">Thermal Endpoint</span>
+            <span class="mono">/thermal</span>
+          </div>
+          <div class="alert-stat-row">
+            <span class="mono dim">LED Endpoint</span>
+            <span class="mono">/led?state=</span>
+          </div>
+          <div class="alert-stat-row">
+            <span class="mono dim">Sensor</span>
+            <span class="mono">AMG8833 · 8×8 · I²C</span>
+          </div>
+          <div class="alert-stat-row">
+            <span class="mono dim">LED Pin</span>
+            <span class="mono">GPIO5 · PWM · 5kHz</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card span-2">
+        <div class="card-header">
+          <span class="card-title">Raw JSON Feed</span>
+          <span class="card-meta" id="raw-ts">--:--:--</span>
+        </div>
+        <div class="card-body">
+          <pre id="raw-json" class="raw-pre">Waiting for ESP data...</pre>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+</main>
+</div><!-- end app-layout -->
+
+<script src="config.js"></script>
+<script src="script.js"></script>
+</body>
+</html>

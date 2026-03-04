@@ -1,0 +1,977 @@
+/* ─── RESET & BASE ──────────────────────────────────────────── */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg:        #080b0f;
+  --surface:   #0d1117;
+  --panel:     #111820;
+  --border:    #1c2a38;
+  --border2:   #243040;
+  --accent:    #00e5c4;
+  --accent2:   #ff4d4d;
+  --accent3:   #ffc94d;
+  --cold:      #4a9eff;
+  --hot:       #ff6b35;
+  --fire:      #ef4444;
+  --text:      #c5d8e8;
+  --dim:       #4a6275;
+  --sidebar:   210px;
+  --radius:    8px;
+  --status-h:  32px;
+}
+
+html, body { height: 100%; overflow: hidden; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Barlow Condensed', sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── SCANLINES ─────────────────────────────────────────────── */
+.scanlines {
+  position: fixed; inset: 0; z-index: 1000; pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 3px,
+    rgba(0,229,196,0.012) 3px, rgba(0,229,196,0.012) 4px
+  );
+}
+
+/* ─── SYSTEM STATUS BAR ─────────────────────────────────────── */
+.system-status-bar {
+  height: var(--status-h);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 1.5px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: background 0.4s, border-color 0.4s;
+}
+
+.system-status-bar.normal   { border-bottom-color: var(--accent);  background: rgba(0,229,196,0.04); }
+.system-status-bar.warning  { border-bottom-color: var(--accent3); background: rgba(255,201,77,0.06); }
+.system-status-bar.critical { border-bottom-color: var(--fire);    background: rgba(239,68,68,0.08);
+  animation: critbar 0.8s infinite alternate; }
+.system-status-bar.shutdown { border-bottom-color: var(--dim);     background: rgba(0,0,0,0.3); }
+
+@keyframes critbar {
+  from { background: rgba(239,68,68,0.06); }
+  to   { background: rgba(239,68,68,0.14); }
+}
+
+.status-bar-label { color: var(--dim); }
+.status-bar-value { color: var(--accent); font-weight: 700; }
+.system-status-bar.warning  .status-bar-value { color: var(--accent3); }
+.system-status-bar.critical .status-bar-value { color: var(--fire); }
+.system-status-bar.shutdown .status-bar-value { color: var(--dim); }
+.status-bar-sep { color: var(--border2); margin: 0 4px; }
+
+/* ─── APP LAYOUT ─────────────────────────────────────────────── */
+.app-layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ─── SIDEBAR ───────────────────────────────────────────────── */
+.sidebar {
+  width: var(--sidebar);
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  z-index: 10;
+  overflow: hidden;
+}
+
+.sidebar-logo {
+  padding: 20px 16px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo-mark {
+  width: 34px; height: 34px;
+  border: 1.5px solid var(--accent);
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+  box-shadow: 0 0 14px rgba(0,229,196,0.2);
+  flex-shrink: 0;
+}
+.logo-mark svg { width: 18px; height: 18px; }
+
+.logo-title {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 4px;
+  color: var(--accent);
+  line-height: 1;
+}
+.logo-sub {
+  display: block;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.5rem;
+  color: var(--dim);
+  letter-spacing: 1.5px;
+  margin-top: 3px;
+}
+
+.nav-links {
+  list-style: none;
+  padding: 12px 0;
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--dim);
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s;
+  user-select: none;
+}
+.nav-item svg { width: 15px; height: 15px; flex-shrink: 0; }
+.nav-item:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+.nav-item.active {
+  color: var(--accent);
+  background: rgba(0,229,196,0.07);
+  border-right: 2px solid var(--accent);
+}
+
+.nav-badge {
+  margin-left: auto;
+  background: var(--accent2);
+  color: #fff;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.58rem;
+  border-radius: 10px;
+  padding: 1px 6px;
+}
+
+.sidebar-status {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.status-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--dim);
+  animation: blink 1.5s infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+#sidebar-status.connected .status-dot  { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+#sidebar-status.error     .status-dot  { background: var(--accent2); box-shadow: 0 0 6px var(--accent2); }
+
+.status-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.63rem;
+  letter-spacing: 2px;
+  color: var(--dim);
+}
+#sidebar-status.connected .status-label { color: var(--accent); }
+#sidebar-status.error     .status-label { color: var(--accent2); }
+
+.status-meta {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.58rem;
+  color: var(--dim);
+  margin-top: 4px;
+  letter-spacing: 1px;
+}
+
+/* ─── MAIN CONTENT ──────────────────────────────────────────── */
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 28px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border2) transparent;
+}
+
+.page { display: none; animation: fadeIn 0.2s ease; }
+.page.active { display: block; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ─── PAGE HEADER ───────────────────────────────────────────── */
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.page-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--text);
+  text-transform: uppercase;
+}
+
+.page-sub {
+  font-size: 0.82rem;
+  color: var(--dim);
+  letter-spacing: 1px;
+  margin-top: 3px;
+}
+
+.header-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ─── UTILITY CLASSES ───────────────────────────────────────── */
+.mono   { font-family: 'Share Tech Mono', monospace; }
+.dim    { color: var(--dim); }
+.accent { color: var(--accent); }
+.cold   { color: var(--cold); }
+.hot    { color: var(--hot); }
+.fire   { color: var(--fire); }
+
+.chip {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 1.5px;
+  padding: 3px 10px;
+  border: 1px solid var(--border2);
+  border-radius: 20px;
+  color: var(--dim);
+}
+
+.status-chip { color: var(--accent); border-color: var(--accent); }
+
+/* ─── CARDS ─────────────────────────────────────────────────── */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.card-header {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-title {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--dim);
+  font-family: 'Share Tech Mono', monospace;
+}
+
+.card-meta {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.6rem;
+  color: var(--dim);
+  letter-spacing: 1px;
+}
+
+.card-body { padding: 16px; }
+.card-body.center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+/* ─── BIG STAT ───────────────────────────────────────────────── */
+.big-stat {
+  font-size: 2.2rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -1px;
+}
+.big-unit {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.6rem;
+  color: var(--dim);
+  letter-spacing: 1.5px;
+  margin-top: 4px;
+  text-align: center;
+}
+
+/* ─── DASHBOARD GRID ────────────────────────────────────────── */
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+.span-2 { grid-column: span 2; }
+.span-3 { grid-column: span 3; }
+.span-4 { grid-column: span 4; }
+.span-6 { grid-column: span 6; }
+
+/* ─── HEATMAP ────────────────────────────────────────────────── */
+.heatmap-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+  width: 100%;
+  max-width: 340px;
+}
+
+.heatmap-large {
+  max-width: 500px;
+  gap: 6px;
+}
+
+.hm-cell {
+  aspect-ratio: 1;
+  border-radius: 4px;
+  transition: background-color 0.4s ease;
+  cursor: crosshair;
+}
+
+.hm-legend {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.hm-leg-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.58rem;
+  color: var(--dim);
+}
+
+.leg-swatch {
+  width: 10px; height: 10px;
+  border-radius: 2px;
+}
+
+/* ─── HEATMAP PAGE ───────────────────────────────────────────── */
+.heatmap-page-grid {
+  display: grid;
+  grid-template-columns: 1fr 260px;
+  gap: 16px;
+}
+
+.heatmap-card .card-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 22px;
+}
+
+.hm-side { display: flex; flex-direction: column; gap: 14px; }
+
+.inspector-placeholder {
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+}
+
+.inspector-data { width: 100%; }
+
+.inspector-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.66rem;
+}
+.inspector-row:last-child { border: none; }
+
+.color-scale-bar {
+  height: 14px;
+  border-radius: 4px;
+  background: linear-gradient(to right, #1e3a5f, #3b82f6, #22c55e, #eab308, #f97316, #ef4444);
+  margin-bottom: 6px;
+}
+.color-scale-labels {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.56rem;
+  color: var(--dim);
+}
+
+.row-avg-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+.row-avg-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.58rem;
+  color: var(--dim);
+  width: 34px;
+}
+.row-avg-track {
+  flex: 1;
+  height: 7px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.row-avg-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease, background 0.4s ease;
+}
+.row-avg-val {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.6rem;
+  color: var(--text);
+  width: 42px;
+  text-align: right;
+}
+
+/* ─── ENERGY PAGE ────────────────────────────────────────────── */
+.energy-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 14px;
+}
+
+/* formula banner */
+.formula-banner {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 18px;
+  overflow: hidden;
+  flex-wrap: wrap;
+}
+
+.formula-item {
+  flex: 1;
+  padding: 12px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
+}
+
+.formula-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 2px;
+  color: var(--dim);
+  text-transform: uppercase;
+}
+
+.formula-val {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.82rem;
+  color: var(--accent);
+  letter-spacing: 1px;
+}
+
+.formula-divider {
+  width: 1px;
+  align-self: stretch;
+  background: var(--border);
+}
+
+/* EWI bar */
+.ewi-bar-track {
+  width: 100%;
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+
+.ewi-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent);
+  width: 0%;
+  transition: width 0.5s ease, background 0.5s ease;
+}
+
+/* Explainer section */
+.explainer-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.explainer-item {
+  padding: 14px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.explainer-num {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 1.4rem;
+  color: var(--border2);
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.explainer-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.explainer-body {
+  font-size: 0.8rem;
+  color: var(--dim);
+  line-height: 1.6;
+}
+
+/* ─── GRAPHS ─────────────────────────────────────────────────── */
+canvas { display: block; width: 100%; }
+
+.graph-legend {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.gl-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.6rem;
+  color: var(--dim);
+}
+
+.gl-line {
+  width: 20px;
+  height: 2px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.gl-line.dashed {
+  background: transparent;
+  border-top: 2px dashed rgba(255,201,77,0.6);
+}
+
+/* ─── HISTORY PAGE ───────────────────────────────────────────── */
+.history-stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+/* ─── ALERTS PAGE ────────────────────────────────────────────── */
+.alerts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.threshold-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.threshold-row label {
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+.threshold-row input[type=range] {
+  flex: 1;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.threshold-val {
+  font-size: 0.8rem;
+  min-width: 46px;
+  text-align: right;
+  color: var(--accent);
+}
+
+.alert-status-box {
+  border-radius: 6px;
+  padding: 11px 13px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.02);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.68rem;
+  color: var(--dim);
+  min-height: 44px;
+  transition: all 0.3s;
+}
+
+.alert-status-box.firing {
+  border-color: var(--accent2);
+  background: rgba(255,77,77,0.1);
+  color: var(--accent2);
+  animation: alertpulse 0.9s infinite alternate;
+}
+
+@keyframes alertpulse {
+  from { box-shadow: 0 0 0   rgba(255,77,77,0); }
+  to   { box-shadow: 0 0 20px rgba(255,77,77,0.25); }
+}
+
+.alert-stat-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.8rem;
+}
+.alert-stat-row:last-child { border: none; }
+
+.alert-log-entry {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.63rem;
+  color: var(--accent3);
+  border-left: 2px solid var(--accent3);
+  padding: 4px 10px;
+  margin-bottom: 5px;
+  background: rgba(255,201,77,0.04);
+  border-radius: 0 4px 4px 0;
+}
+
+/* ─── CONTROLS PAGE ──────────────────────────────────────────── */
+.controls-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+/* LED visual orb */
+.led-visual {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: var(--border);
+  border: 3px solid var(--border2);
+  transition: all 0.4s;
+  box-shadow: none;
+  flex-shrink: 0;
+}
+.led-visual.on {
+  background: #ffee44;
+  border-color: #ffcc00;
+  box-shadow: 0 0 28px rgba(255,220,0,0.6), 0 0 56px rgba(255,220,0,0.2);
+}
+.led-visual.dim {
+  background: #b8a000;
+  border-color: #887800;
+  box-shadow: 0 0 12px rgba(184,160,0,0.3);
+}
+.led-visual.pulse {
+  background: #ef4444;
+  border-color: #cc0000;
+  animation: ledpulse 0.6s infinite alternate;
+}
+.led-visual.off {
+  background: #1a0a0a;
+  border-color: #3a1a1a;
+  box-shadow: none;
+}
+
+@keyframes ledpulse {
+  from { box-shadow: 0 0 10px rgba(239,68,68,0.4); }
+  to   { box-shadow: 0 0 36px rgba(239,68,68,0.9), 0 0 60px rgba(239,68,68,0.3); }
+}
+
+.led-state-stages {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  width: 100%;
+}
+
+.led-stage {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+}
+
+.led-stage-dot {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.led-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.btn-led-on, .btn-led-off {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.68rem;
+  letter-spacing: 1.5px;
+  padding: 7px 16px;
+  border-radius: 4px;
+  border: 1px solid;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: transparent;
+}
+.btn-led-on  { border-color: var(--accent3); color: var(--accent3); }
+.btn-led-on:hover  { background: rgba(255,201,77,0.1); }
+.btn-led-off { border-color: var(--dim); color: var(--dim); }
+.btn-led-off:hover { border-color: var(--accent2); color: var(--accent2); background: rgba(255,77,77,0.07); }
+
+.raw-pre {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.6rem;
+  color: var(--dim);
+  line-height: 1.7;
+  max-height: 240px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border2) transparent;
+}
+
+/* ─── BUTTONS ────────────────────────────────────────────────── */
+.btn-outline {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.68rem;
+  letter-spacing: 1.5px;
+  padding: 6px 14px;
+  border-radius: 4px;
+  border: 1px solid var(--border2);
+  color: var(--dim);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-transform: uppercase;
+}
+.btn-outline:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(0,229,196,0.06);
+}
+
+/* ─── CRITICAL ALERT POPUP ───────────────────────────────────── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+  backdrop-filter: blur(4px);
+}
+
+.overlay.visible {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.popup {
+  background: var(--panel);
+  border: 1px solid var(--fire);
+  border-radius: 12px;
+  padding: 36px 40px;
+  max-width: 460px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 0 60px rgba(239,68,68,0.3), 0 0 120px rgba(239,68,68,0.1);
+  animation: popupin 0.3s ease;
+}
+
+@keyframes popupin {
+  from { transform: scale(0.9); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+
+.popup-icon {
+  font-size: 2.8rem;
+  margin-bottom: 12px;
+  color: var(--fire);
+  animation: iconpulse 0.7s infinite alternate;
+}
+
+@keyframes iconpulse {
+  from { text-shadow: 0 0 10px rgba(239,68,68,0.4); }
+  to   { text-shadow: 0 0 30px rgba(239,68,68,1); }
+}
+
+.popup-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: var(--fire);
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+.popup-body {
+  font-size: 0.95rem;
+  color: var(--text);
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+.popup-temp {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 1.2rem;
+  color: var(--fire);
+  font-weight: 700;
+}
+
+.popup-meta {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--dim);
+  margin-bottom: 12px;
+  line-height: 1.8;
+}
+
+.popup-countdown {
+  font-size: 1rem;
+  color: var(--accent3);
+  font-weight: 700;
+}
+
+.popup-detail {
+  font-size: 0.82rem;
+  color: var(--dim);
+  line-height: 1.6;
+  margin-bottom: 24px;
+  padding: 10px 14px;
+  background: rgba(239,68,68,0.05);
+  border: 1px solid rgba(239,68,68,0.15);
+  border-radius: 6px;
+  text-align: left;
+}
+
+.popup-btn {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 0.8rem;
+  letter-spacing: 2px;
+  padding: 12px 32px;
+  border-radius: 6px;
+  border: 1px solid var(--fire);
+  color: #fff;
+  background: var(--fire);
+  cursor: pointer;
+  transition: all 0.2s;
+  text-transform: uppercase;
+  width: 100%;
+}
+.popup-btn:hover {
+  background: #cc0000;
+  box-shadow: 0 0 20px rgba(239,68,68,0.4);
+}
+
+/* ─── TOOLTIP ────────────────────────────────────────────────── */
+.tooltip-anchor {
+  cursor: help;
+  color: var(--dim);
+  font-size: 0.7rem;
+}
+
+/* ─── RESPONSIVE ─────────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .energy-grid       { grid-template-columns: repeat(3, 1fr); }
+  .energy-grid .span-3 { grid-column: span 3; }
+  .energy-grid .span-6 { grid-column: span 3; }
+  .explainer-grid    { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 960px) {
+  :root { --sidebar: 52px; }
+  .logo-text, .nav-item span, .status-label, .status-meta { display: none; }
+  .nav-item  { justify-content: center; padding: 13px; }
+  .sidebar-logo { justify-content: center; padding: 14px 0; }
+  .logo-mark { margin: 0; }
+  .content   { padding: 14px; }
+  .dash-grid { grid-template-columns: repeat(2, 1fr); }
+  .span-4    { grid-column: span 2; }
+  .history-stats-row   { grid-template-columns: repeat(2, 1fr); }
+  .heatmap-page-grid   { grid-template-columns: 1fr; }
+  .controls-grid       { grid-template-columns: 1fr; }
+  .alerts-grid         { grid-template-columns: 1fr; }
+  .alerts-grid .span-2 { grid-column: span 1; }
+  .controls-grid .span-2 { grid-column: span 1; }
+  .energy-grid         { grid-template-columns: repeat(2, 1fr); }
+  .energy-grid .span-3,
+  .energy-grid .span-6 { grid-column: span 2; }
+  .formula-banner      { flex-direction: column; }
+  .formula-divider     { width: 100%; height: 1px; }
+}
+
+@media (max-width: 600px) {
+  .dash-grid           { grid-template-columns: 1fr; }
+  .span-2              { grid-column: span 1; }
+  .history-stats-row   { grid-template-columns: 1fr; }
+  .explainer-grid      { grid-template-columns: 1fr; }
+  .energy-grid         { grid-template-columns: 1fr; }
+  .energy-grid .span-3,
+  .energy-grid .span-6 { grid-column: span 1; }
+  .popup               { padding: 24px 20px; }
+}
